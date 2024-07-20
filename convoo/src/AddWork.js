@@ -31,7 +31,7 @@ const AddWork = () => {
 
     // Handle input changes
     const handleChange = (e) => {
-        const { id, value } = e.target;
+        const { id, value, files } = e.target;
         switch (id) {
             case 'title':
                 setTitle(value);
@@ -46,7 +46,7 @@ const AddWork = () => {
                 setGenres(Array.from(e.target.selectedOptions, option => option.value));
                 break;
             case 'videoFile':
-                setVideoFile(e.target.files[0]);
+                setVideoFile(files[0]);
                 break;
             default:
                 break;
@@ -91,7 +91,7 @@ const AddWork = () => {
         try {
             const snapshot = await videoRef.put(videoFile);
             const videoURL = await snapshot.ref.getDownloadURL();
-
+            
             const newVideoKey = firebase.database().ref().child('videos').push().key;
             const videoData = {
                 title,
@@ -99,9 +99,10 @@ const AddWork = () => {
                 genres,
                 hashtags,
                 videoURL,
-                userId,
+                userId:username+"_"+phoneNumber,
                 username,
                 phoneNumber,
+                userData, // Store the whole user data
                 quizzes,
                 createdAt: firebase.database.ServerValue.TIMESTAMP
             };
