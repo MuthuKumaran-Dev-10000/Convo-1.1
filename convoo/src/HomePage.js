@@ -1,6 +1,8 @@
 import React, { useEffect, useState, useRef } from 'react';
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom'; // Updated import
+import { useNavigate } from 'react-router-dom';
+import { database } from './config/db';
+import { ref, get } from 'firebase/database';
 import './HomePage.css';
 
 const HomePage = () => {
@@ -13,7 +15,19 @@ const HomePage = () => {
     const fetchVideos = async () => {
       try {
         const response = await axios.get('http://localhost:5000/videos');
-        setVideos(response.data);
+        const videosData = response.data;
+
+        // Fetch user icons
+        const updatedVideosData = await Promise.all(
+          videosData.map(async (video) => {
+            const userRef = ref(database, `users/${video.userId}`);
+            const userSnapshot = await get(userRef);
+            const userData = userSnapshot.val();
+            return { ...video, userIcon: userData?.profileImage || 'default-icon.png' };
+          })
+        );
+
+        setVideos(updatedVideosData);
       } catch (error) {
         console.error('Error fetching videos:', error);
       }
