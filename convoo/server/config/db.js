@@ -1,5 +1,5 @@
 const admin = require('firebase-admin');
-const serviceAccount = require('./convo-config.json'); 
+const serviceAccount = require('./convo-be05d-firebase-adminsdk-hh4xq-503eb4377e.json'); 
 
 
 admin.initializeApp({
@@ -11,3 +11,4 @@ admin.initializeApp({
 const db = admin.database();
 
 module.exports = db;
+

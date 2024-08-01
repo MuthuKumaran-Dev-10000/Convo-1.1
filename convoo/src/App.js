@@ -7,6 +7,7 @@ import SignupPage from './SignupPage';
 import './boxicons/css/boxicons.min.css';
 import VidScreen from './VidScreen';
 import AddWork from './AddWork';
+import './App.css';
 
 const App = () => {
     return (

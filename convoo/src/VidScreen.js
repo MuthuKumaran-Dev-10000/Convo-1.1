@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import firebase from 'firebase/compat/app';
 import 'firebase/compat/database';
 import 'firebase/compat/storage';
@@ -22,17 +22,20 @@ if (!firebase.apps.length) {
 
 const VidScreen = () => {
   const { videoId } = useParams();
+  const navigate = useNavigate(); // For navigation
   const [video, setVideo] = useState(null);
   const [quizzes, setQuizzes] = useState([]);
   const [currentQuizIndex, setCurrentQuizIndex] = useState(0);
   const [quizPoints, setQuizPoints] = useState(0);
-  const [selectedOption, setSelectedOption] = useState(null); // Track selected option
+  const [selectedOption, setSelectedOption] = useState(null);
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
   const [comment, setComment] = useState('');
   const [comments, setComments] = useState([]);
   const [user, setUser] = useState(null);
-  const [profileImage, setProfileImage] = useState(null); // Track profile image URL
+  const [profileImage, setProfileImage] = useState(null);
+  const [feedback, setFeedback] = useState(""); // Feedback for quiz answers
+  const [showSubmit, setShowSubmit] = useState(false); // For showing submit button
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -71,6 +74,13 @@ const VidScreen = () => {
         if (userData?.subscribers?.includes(userId)) {
           setIsSubscribed(true);
         }
+
+        if (videoData.quizzes) {
+          // Filter out quizzes with no content or options
+          const validQuizzes = videoData.quizzes.filter(q => q.question && q.options && q.options.length > 0);
+          setQuizzes(validQuizzes);
+          setShowSubmit(validQuizzes.length > 0); // Show submit button if there are valid quizzes
+        }
       } catch (error) {
         console.error('Error fetching video:', error);
       }
@@ -80,22 +90,54 @@ const VidScreen = () => {
     fetchVideo();
   }, [videoId]);
 
-  const handleAnswer = (option) => {
-    setSelectedOption(option); // Set the selected option
-    const correctAnswer = quizzes[currentQuizIndex].answer;
-    if (option === correctAnswer) {
+  const handleAnswer = (index) => {
+    const correctAnswerIndex = quizzes[currentQuizIndex].correctAnswerIndex;
+    const options = document.querySelectorAll('.quiz-option');
+
+    setSelectedOption(index);
+
+    options.forEach((option, i) => {
+      if (i === index) {
+        option.style.color = 'white';
+        option.style.backgroundColor = i === correctAnswerIndex ? 'green' : 'red';
+      } else if (i === correctAnswerIndex) {
+        option.style.color = 'white';
+        option.style.backgroundColor = 'green';
+      } else {
+        option.style.color = 'black';
+        option.style.backgroundColor = '#f9f9f9'; // Reset background
+      }
+    });
+
+    if (index === correctAnswerIndex) {
       setQuizPoints(quizPoints + 1);
+      setFeedback('Correct! +1 point');
+    } else {
+      setFeedback('Wrong answer! The correct answer is highlighted in green.');
     }
   };
 
   const handleNextQuiz = () => {
-    setSelectedOption(null); // Reset selected option for the next quiz
+    setSelectedOption(null);
     setCurrentQuizIndex(currentQuizIndex + 1);
+    setFeedback("");
+    document.querySelectorAll('.quiz-option').forEach(option => {
+      option.style.color = 'black';
+      option.style.backgroundColor = '#f9f9f9'; // Reset background
+    });
+
+    // Check if the last quiz has been reached
+    if (currentQuizIndex + 1 >= quizzes.length) {
+      setShowSubmit(true);
+    } else {
+      setShowSubmit(false);
+    }
   };
 
   const handleSubmitQuiz = () => {
-    alert(`Quiz submitted! You scored ${quizPoints} out of ${quizzes.length}`);
-    // Update quiz points in user's past data (not implemented here)
+    setFeedback(`Quiz submitted! You scored ${quizPoints} out of ${quizzes.length}`);
+    // Redirect to home page after submitting
+    navigate('/home');
   };
 
   const handleSubscribe = async () => {
@@ -149,6 +191,9 @@ const VidScreen = () => {
 
   return (
     <div style={{ fontFamily: 'Arial, sans-serif', backgroundColor: '#f5f5f5', padding: '20px', display: 'flex', justifyContent: 'center', alignItems: 'center', flexDirection: 'column' }}>
+      <br />
+      <br />
+      <br />
       <div style={{ width: '100%', padding: '40px', boxSizing: 'border-box', backgroundColor: 'black', position: 'relative' }}>
         <video src={video.videoURL} controls style={{ width: '100%', height: '100%', objectFit: 'contain' }}>
           Your browser does not support the video tag.
@@ -160,52 +205,66 @@ const VidScreen = () => {
         <div style={{ marginBottom: '15px', textAlign: 'center' }}>{video.description}</div>
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: '15px' }}>
           <img src={profileImage} id="image" alt="User Icon" style={{ width: '40px', height: '40px', borderRadius: '50%', marginRight: '10px' }} />
-          <div style={{ fontWeight: 'bold', marginRight: '10px' }}>{video.username}</div>
-          <div style={{ color: '#666' }}>Subscribers: {video.subscribers?.length || 0}</div>
-          <button style={{ padding: '10px 20px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', transition: 'background-color 0.3s', marginLeft: '10px' }} onClick={handleSubscribe}>
-            {isSubscribed ? 'Unsubscribe' : 'Subscribe'}
-          </button>
+          <div>{video.username}</div>
         </div>
-      </div>
 
-      <div style={{ width: '70%', maxWidth: '800px', padding: '20px', backgroundColor: '#fff', boxShadow: '0 0 10px rgba(0,0,0,0.1)', borderRadius: '5px', marginTop: '20px' }}>
-        <button onClick={handleLike} style={{ padding: '10px 20px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', transition: 'background-color 0.3s' }}>Like</button>
-        <div>Likes: {likeCount}</div>
-      </div>
+        <button style={{ padding: '10px 20px', backgroundColor: isSubscribed ? '#dc3545' : '#007bff', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', marginBottom: '15px' }} onClick={handleSubscribe}>
+          {isSubscribed ? 'Unsubscribe' : 'Subscribe'}
+        </button>
 
-      {quizzes.length > 0 && (
-        <div style={{ width: '70%', maxWidth: '800px', padding: '20px', backgroundColor: '#fff', boxShadow: '0 0 10px rgba(0,0,0,0.1)', borderRadius: '5px', marginTop: '20px' }}>
-          <div style={{ fontSize: '1.2rem', fontWeight: 'bold', marginBottom: '10px' }}>{quizzes[currentQuizIndex].question}</div>
-          <form>
-            {quizzes[currentQuizIndex].options.map((option, index) => (
-              <div key={index} style={{ marginBottom: '10px' }}>
-                <label>
-                  <input type="radio" name="quiz" value={option} checked={selectedOption === option} onChange={() => handleAnswer(option)} />
+        <button style={{ padding: '10px 20px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', marginBottom: '15px' }} onClick={handleLike}>
+          Like {likeCount}
+        </button>
+
+        <div style={{ width: '100%', marginBottom: '20px' }}>
+          {quizzes.length > 0 && quizzes[currentQuizIndex]?.question && quizzes[currentQuizIndex]?.options?.length > 0 && (
+            <div style={{ width: '100%' }}>
+              <h3>Quiz: {currentQuizIndex + 1}/{quizzes.length}</h3>
+              <div style={{ marginBottom: '10px' }}>{quizzes[currentQuizIndex].question}</div>
+              {quizzes[currentQuizIndex].options.map((option, index) => (
+                <div key={index} className="quiz-option" style={{ cursor: 'pointer', padding: '10px', marginBottom: '5px', borderRadius: '5px', backgroundColor: '#f9f9f9', transition: 'background-color 0.3s' }} onClick={() => handleAnswer(index)}>
                   {option}
-                </label>
-              </div>
-            ))}
-          </form>
-          {currentQuizIndex < quizzes.length - 1 ? (
-            <button onClick={handleNextQuiz} style={{ padding: '10px 20px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', transition: 'background-color 0.3s' }}>Next</button>
-          ) : (
-            <button onClick={handleSubmitQuiz} style={{ padding: '10px 20px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', transition: 'background-color 0.3s' }}>Submit</button>
+                </div>
+              ))}
+              {feedback && (
+                <div style={{ fontSize: '1rem', color: feedback.startsWith('Correct') ? 'green' : 'red', marginTop: '10px' }}>
+                  {feedback}
+                </div>
+              )}
+              <button style={{ padding: '10px 20px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', marginTop: '10px' }} onClick={handleNextQuiz}>
+                Next
+              </button>
+              {showSubmit && (
+                <button style={{ padding: '10px 20px', backgroundColor: '#17a2b8', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', marginTop: '10px' }} onClick={handleSubmitQuiz}>
+                  Submit Quiz
+                </button>
+              )}
+            </div>
           )}
         </div>
-      )}
 
-      <div style={{ width: '70%', maxWidth: '800px', padding: '20px', backgroundColor: '#fff', boxShadow: '0 0 10px rgba(0,0,0,0.1)', borderRadius: '5px', marginTop: '20px' }}>
-        <form onSubmit={handleCommentSubmit}>
-          <input type="text" value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Add a comment..." style={{ width: '80%', padding: '10px', borderRadius: '5px', border: '1px solid #ddd' }} />
-          <button type="submit" style={{ padding: '10px 20px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', transition: 'background-color 0.3s', marginLeft: '10px' }}>Submit</button>
+        <form onSubmit={handleCommentSubmit} style={{ width: '100%', marginTop: '20px' }}>
+          <input
+            type="text"
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+            placeholder="Add a comment..."
+            style={{ width: '100%', padding: '10px', marginBottom: '10px', borderRadius: '5px', border: '1px solid #ddd' }}
+          />
+          <button type="submit" style={{ padding: '10px 20px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer' }}>Post Comment</button>
         </form>
-        <div style={{ marginTop: '20px' }}>
-          {comments.map((comment, index) => (
-            <div key={index} style={{ marginBottom: '10px' }}>
-              <div style={{ fontWeight: 'bold', marginRight: '10px' }}>{comment.userId}</div>
-              <div>{comment.comment}</div>
-            </div>
-          ))}
+
+        <div style={{ width: '100%', marginTop: '20px' }}>
+          <h3>Comments</h3>
+          {comments.length > 0 ? (
+            comments.map((c, index) => (
+              <div key={index} style={{ padding: '10px', borderBottom: '1px solid #ddd' }}>
+                <strong>{c.userId}</strong>: {c.comment}
+              </div>
+            ))
+          ) : (
+            <div>No comments yet.</div>
+          )}
         </div>
       </div>
     </div>
