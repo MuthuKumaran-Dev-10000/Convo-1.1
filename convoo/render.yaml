@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: convoo-frontend
+    env: node
+    buildCommand: npm run build
+    startCommand: npm start
+    branch: main
+    gitRepository:
+      url: https://github.com/MuthuKumaran-Dev-10000/Convo-1.0

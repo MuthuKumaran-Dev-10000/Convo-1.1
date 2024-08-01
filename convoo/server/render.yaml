@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: convoo-backend
+    env: node
+    buildCommand: npm install
+    startCommand: node server.js
+    branch: main
+    gitRepository:
+      url: https://github.com/MuthuKumaran-Dev-10000/Convo-1.0
+    envVars:
+      - key: NODE_ENV
+        value: production
